@@ -19,3 +19,7 @@ $ python main.py
 ## Additional Notes
 
 Wire pin 2, 3, 4, and 5 to the LED lights - corresponding to L, D, U and R.
+
+## Additional Links
+
+- [Youtube Video Demonstration](https://www.youtube.com/watch?v=6IGMDBvS_Eg)
