@@ -1,0 +1,105 @@
+<Layer
+	Type="Quad"
+	Name="Arduino"
+	OverlayReadyMessageCommand="queuecommand,First"
+	FirstCommand="%function(self)
+		if ARDUINO then return end
+
+		ARDUINO = {}	
+		ARDUINO.screen = SCREENMAN:GetTopScreen():GetName()
+		ARDUINO.state = { 0, 0, 0, 0 }
+		ARDUINO.state_time = { 0, 0, 0, 0 }
+		ARDUINO.decay = 0.1
+		ARDUINO.last_seen_beat = 0
+		ARDUINO.notes = {}
+		ARDUINO.broadcast = function()
+			-- print(ARDUINO.state[1] .. ARDUINO.state[2] .. ARDUINO.state[3] .. ARDUINO.state[4])
+			Lemonade.Buffers:Add(69, ARDUINO.state)
+		end
+		ARDUINO.reset = function() 
+			ARDUINO.state = { 0, 0, 0, 0 }
+			ARDUINO.state_time = { 0, 0, 0, 0 }
+			ARDUINO.notes = {}
+			ARDUINO.last_seen_beat = 0
+			ARDUINO.broadcast()
+		end
+		ARDUINO.load_notes = function()
+			local p1_steps = GAMESTATE:GetCurrentSteps(0)
+			local p1_notes = GAMESTATE:GetCurrentSong():GetNoteData(p1_steps)
+			ARDUINO.notes = p1_notes
+		end
+		ARDUINO.test = function()
+			ARDUINO.state = math.mod(ARDUINO.state + 1, 2)
+			Lemonade.Buffers:Add(69, {ARDUINO.state})
+		end
+
+		self:luaeffect('Start')
+	end"
+
+	StartCommand="%function(self)
+		local screen = SCREENMAN:GetTopScreen():GetName()
+
+		if screen == 'ScreenGameplay' then
+			local beat = GAMESTATE:GetSongBeat()
+			local delta_beat = beat - ARDUINO.last_seen_beat
+			ARDUINO.last_seen_beat = beat
+			if delta_beat > 0 then
+				local broadcast = false
+	
+				local note_delete = {}
+				for index,note in pairs(ARDUINO.notes) do	
+					if beat >= note[1] then
+						-- print(note[2] .. ' has been stepped!')
+						if note[3] and note[3] ~= 'M' then
+							local col = note[2] + 1
+							ARDUINO.state[col] = 1
+							ARDUINO.state_time[col] = note.length or ARDUINO.decay
+							broadcast = true
+						end
+						table.insert(note_delete, index)
+					end
+				end
+				if table.getn(note_delete) > 0 then
+					for i = table.getn(note_delete), 1, -1 do
+						table.remove(ARDUINO.notes, i)
+					end
+				end
+	
+				for i=1, 4 do
+					if ARDUINO.state[i] == 1 then
+						if ARDUINO.state_time[i] > 0 then
+							ARDUINO.state_time[i] = ARDUINO.state_time[i] - delta_beat
+						else
+							-- print(i .. ' has been released!')
+							ARDUINO.state[i] = 0
+							ARDUINO.state_time[i] = 0
+							broadcast = true
+						end
+					end
+				end
+
+				-- GAMESTATE:SetExternal(200, ARDUINO.state[1])
+				-- GAMESTATE:SetExternal(201, ARDUINO.state[2])
+				-- GAMESTATE:SetExternal(202, ARDUINO.state[3])
+				-- GAMESTATE:SetExternal(203, ARDUINO.state[4])
+
+				if broadcast then
+					ARDUINO.broadcast()
+				end
+			end
+		end
+
+		if ARDUINO.screen ~= screen then
+			if ARDUINO.screen == 'ScreenGameplay' or screen == 'ScreenGameplay' then
+				ARDUINO.reset()
+			end
+			if screen == 'ScreenGameplay' then
+				ARDUINO.load_notes()
+			end
+			ARDUINO.screen = screen
+		end
+	end"
+	SaltyResetMessageCommand="%function(self)
+		ARDUINO.load_notes()
+	end"
+/>
